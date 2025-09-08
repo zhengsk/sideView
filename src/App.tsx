@@ -1,10 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
-import { Webview } from "@tauri-apps/api/webview";
-import { PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-
 
 import "./App.css";
 
@@ -23,152 +18,172 @@ function App() {
 
   function createLabel() {
     labelCounter.current += 1;
-    return `tab-${labelCounter.current}`;
+    return `webview-tab-${labelCounter.current}`;
   }
 
+  /**
+   * 调整当前活动 webview 的大小和位置
+   * @param label 
+   */
   async function layoutActiveWebview(label: string) {
-    debugger;
-    const view = await Webview.getByLabel(label);
-    if (!view) return;
     const container = containerRef.current;
     if (!container) return;
+
     const rect = container.getBoundingClientRect();
     const scale = window.devicePixelRatio || 1;
     const x = Math.round(rect.left * scale);
     const y = Math.round(rect.top * scale);
     const width = Math.round(rect.width * scale);
     const height = Math.round(rect.height * scale);
-    await view.setPosition(new PhysicalPosition(x, y));
+
     try {
-      await view.setSize(new PhysicalSize(width, height));
+      // 使用 Rust 命令调整 webview 大小和位置
+      await invoke('resize_webview', {
+        label,
+        x: x / scale, // 转换为逻辑坐标
+        // 应该加上窗口顶部的高度，动态获取顶部栏的高度
+        y: y / scale + 37,
+        width: width / scale - 37,
+        height: height / scale - 37
+      });
     } catch (error) {
-      debugger;
-      console.error(error);
+      console.error('Failed to resize webview:', error);
     }
   }
 
   async function openTab(url: string, title?: string) {
-    debugger;
-    // const label = createLabel();
-    const label = 'theUniqueLabel';
+    const label = createLabel();
     const container = containerRef.current;
     if (!container) return;
+
     const rect = container.getBoundingClientRect();
     const scale = window.devicePixelRatio || 1;
+
+    console.info(rect, scale);
+
     const x = Math.round(rect.left * scale);
     const y = Math.round(rect.top * scale);
     const width = Math.round(rect.width * scale);
     const height = Math.round(rect.height * scale);
 
     try {
-      const win = await getCurrentWindow();
-
-      debugger;
-
-      const view = new Webview(win, label, { url, x, y, width, height });
-
-
-      await new Promise<void>((resolve, reject) => {
-        view.once("tauri://created", () => resolve());
-        view.once("tauri://error", (e) => {
-          debugger;
-          console.error(e);
-          console.info(e.payload);
-          reject(e);
-        });
+      // 使用 Rust 命令创建内嵌的 webview
+      await invoke('create_embedded_webview', {
+        label,
+        url,
+        x: x / scale, // 转换为逻辑坐标
+        y: y / scale,
+        width: width / scale,
+        height: height / scale
       });
 
-      setTabs((prev) => [...prev, { label, title: title ?? url, url }]);
-      setActiveLabel(label);
+      console.log('Webview created successfully');
 
-      await layoutActiveWebview(label);
-      await view.show();
-      await view.setFocus();
+      setTabs((prev) => [...prev, { label, title: title ?? url, url }]);
+
+      // 隐藏当前活动的 webview
+      if (activeLabel) {
+        await invoke('hide_webview', { label: activeLabel });
+      }
+
+      // 设置新创建的 webview 为活动状态并显示
+      setActiveLabel(label);
+      await invoke('show_webview', { label });
+
+      // 设置 webview 透明度为 50%
+      // await invoke('set_webview_opacity', { label, opacity: 0.5 });
 
     } catch (error) {
-      debugger;
       console.error(error);
     }
   }
 
   async function activateTab(label: string) {
-    // 隐藏当前活动 webview
-    if (activeLabel) {
-      const current = await Webview.getByLabel(activeLabel);
-      await current?.hide();
+    // 如果点击的是当前活动标签，不做任何操作
+    if (activeLabel === label) return;
+
+    try {
+      // 隐藏当前活动的 webview
+      if (activeLabel) {
+        await invoke('hide_webview', { label: activeLabel });
+      }
+
+      // 设置新的活动标签
+      setActiveLabel(label);
+
+      // 调整新标签的 webview 大小和位置
+      await layoutActiveWebview(label);
+
+      // 显示新的活动 webview
+      await invoke('show_webview', { label });
+    } catch (error) {
+      console.error('Failed to activate tab:', error);
     }
-    setActiveLabel(label);
-    await layoutActiveWebview(label);
-    const view = await Webview.getByLabel(label);
-    await view?.show();
-    await view?.setFocus();
   }
 
   async function closeTab(label: string) {
-    const view = await Webview.getByLabel(label);
-    await view?.hide();
-    await view?.close();
-    setTabs((prev) => prev.filter((t) => t.label !== label));
-    setActiveLabel((curr) => (curr === label ? null : curr));
+    try {
+      // 隐藏要关闭的 webview
+      await invoke('hide_webview', { label });
+
+      // 从标签列表中移除
+      setTabs((prev) => prev.filter((t) => t.label !== label));
+
+      // 如果关闭的是当前活动标签，需要切换到其他标签或清空
+      if (activeLabel === label) {
+        const remainingTabs = tabs.filter((t) => t.label !== label);
+        if (remainingTabs.length > 0) {
+          // 切换到最后一个标签
+          const newActiveLabel = remainingTabs[remainingTabs.length - 1].label;
+          setActiveLabel(newActiveLabel);
+          await invoke('show_webview', { label: newActiveLabel });
+        } else {
+          setActiveLabel(null);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to close tab:', error);
+    }
   }
 
-  // useEffect(() => {
-  //   // 初始打开一个花瓣网 tab
-  //   openTab("https://huaban.com", "花瓣网");
+  useEffect(() => {
+    const onResize = () => {
+      if (activeLabel) {
+        layoutActiveWebview(activeLabel);
+      }
+    };
 
-  //   const onResize = () => {
-  //     if (activeLabel) {
-  //       layoutActiveWebview(activeLabel);
-  //     }
-  //   };
-  //   window.addEventListener("resize", onResize);
+    // 监听窗口大小变化
+    window.addEventListener("resize", onResize);
 
-  //   return () => {
-  //     window.removeEventListener("resize", onResize);
-  //     tabs.forEach((t) => {
-  //       Webview.getByLabel(t.label).then((v) => v?.close());
-  //     });
-  //   };
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, []);
+    // 也可以监听容器大小变化（使用 ResizeObserver）
+    const container = containerRef.current;
+    let resizeObserver: ResizeObserver | null = null;
+
+    if (container) {
+      resizeObserver = new ResizeObserver(() => {
+        if (activeLabel) {
+          layoutActiveWebview(activeLabel);
+        }
+      });
+      resizeObserver.observe(container);
+    }
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, [activeLabel]);
 
   return (
     <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
 
       {/* Tab Bar（控制主窗口内的多个 Webview）*/}
-      <div style={{ marginTop: 16, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="tab-bar">
         {tabs.map((t) => (
-          <div key={t.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div key={t.label} className="tab-bar-item">
             <button
               onClick={() => activateTab(t.label)}
               style={{
@@ -185,7 +200,7 @@ function App() {
             </button>
             <button
               onClick={() => closeTab(t.label)}
-              style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #3a3a3a", background: "#1a1a1a", color: "#bbb" }}
+              className="tab-bar-item-close-button"
               aria-label={`close ${t.title}`}
             >
               ×
@@ -201,7 +216,7 @@ function App() {
       </div>
 
       {/* Webview 容器区域：用于计算位置与大小 */}
-      <div ref={containerRef} style={{ marginTop: 12, width: "100%", height: "70vh", border: "1px solid #2f2f2f", borderRadius: 8 }} />
+      <div ref={containerRef} className="webview-container" />
     </main>
   );
 }
