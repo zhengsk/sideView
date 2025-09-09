@@ -1,0 +1,163 @@
+// 定义变量
+@top-bar-height: 32px;
+@control-button-size: 16px;
+@control-gap: 8px;
+@border-radius: 50%;
+@transition-duration: 0.15s;
+
+// 颜色变量
+@bg-dark-start: #2a2a2a;
+@bg-dark-end: #1e1e1e;
+@bg-light-start: #f5f5f5;
+@bg-light-end: #e8e8e8;
+@border-dark: #3a3a3a;
+@border-light: #d0d0d0;
+
+// 控制按钮颜色
+@close-color: #ff5f57;
+@close-hover: #ff6b63;
+@minimize-color: #ffbd2e;
+@minimize-hover: #ffc73a;
+@maximize-color: #28ca42;
+@maximize-hover: #30d748;
+
+.window-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: @top-bar-height;
+  background: linear-gradient(135deg, @bg-dark-start 0%, @bg-dark-end 100%);
+  border-bottom: 1px solid @border-dark;
+  padding: 0 12px;
+  user-select: none;
+  position: relative;
+  z-index: 1000;
+
+  &-left {
+    display: flex;
+    align-items: center;
+    min-width: 80px;
+  }
+
+  &-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    pointer-events: none;
+  }
+
+  &-right {
+    display: flex;
+    align-items: center;
+    min-width: 80px;
+    justify-content: flex-end;
+  }
+}
+
+.window-controls {
+  display: flex;
+  gap: @control-gap;
+  align-items: center;
+}
+
+.window-control-button {
+  width: @control-button-size;
+  height: @control-button-size;
+  padding: 0;
+  border-radius: @border-radius;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all @transition-duration ease;
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+    transform: scale(1.1);
+
+    & > svg {
+      opacity: 1;
+    }
+  }
+
+  &:active {
+    transform: scale(0.95);
+
+    &:hover {
+      transform: scale(0.95);
+    }
+  }
+
+  & > svg {
+    display: block;
+    opacity: 0;
+  }
+
+  &.close {
+    background: @close-color;
+    color: rgba(0, 0, 0, 0.7);
+
+    &:hover {
+      background: @close-hover;
+      color: rgba(0, 0, 0, 0.9);
+    }
+  }
+
+  &.minimize {
+    background: @minimize-color;
+    color: rgba(0, 0, 0, 0.7);
+
+    &:hover {
+      background: @minimize-hover;
+      color: rgba(0, 0, 0, 0.9);
+    }
+  }
+
+  &.maximize {
+    background: @maximize-color;
+    color: rgba(0, 0, 0, 0.7);
+
+    &:hover {
+      background: @maximize-hover;
+      color: rgba(0, 0, 0, 0.9);
+    }
+  }
+}
+
+.window-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 200px;
+}
+
+// 浅色主题适配
+@media (prefers-color-scheme: light) {
+  .window-top-bar {
+    background: linear-gradient(135deg, @bg-light-start 0%, @bg-light-end 100%);
+    border-bottom: 1px solid @border-light;
+  }
+
+  .window-title {
+    color: rgba(0, 0, 0, 0.9);
+  }
+
+  .window-control-button {
+    background: rgba(0, 0, 0, 0.1);
+    color: rgba(0, 0, 0, 0.7);
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.2);
+      color: rgba(0, 0, 0, 0.9);
+    }
+  }
+}

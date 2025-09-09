@@ -45,11 +45,11 @@ body {
   flex-direction: row;
   justify-content: center;
   text-align: center;
-}
 
-.tab-bar-item {
-  display: flex;
-  justify-content: center;
+  .tab-bar-item {
+    display: flex;
+    justify-content: center;
+  }
 }
 
 .webview-container {
@@ -73,14 +73,15 @@ button {
 
 button {
   cursor: pointer;
-}
 
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
+  &:hover {
+    border-color: #396cd8;
+  }
+  
+  &:active {
+    border-color: #396cd8;
+    background-color: #e8e8e8;
+  }
 }
 
 input,
@@ -102,8 +103,9 @@ button {
   button {
     color: #ffffff;
     background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
+    
+    &:active {
+      background-color: #0f0f0f69;
+    }
   }
 }

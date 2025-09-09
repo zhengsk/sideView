@@ -1,20 +1,51 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import WindowTopBar from "./components/WindowTopBar";
 
-import "./App.css";
+import "./App.less";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
   const [tabs, setTabs] = useState<Array<{ label: string; title: string; url: string }>>([]);
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
   const labelCounter = useRef(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  // 窗口控制函数
+  const handleMinimize = async () => {
+    try {
+      const window = getCurrentWindow();
+      await window.minimize();
+    } catch (error) {
+      console.error('Failed to minimize window:', error);
+    }
+  };
+
+  // 最大化窗口
+  const handleMaximize = async () => {
+    try {
+      const window = getCurrentWindow();
+      const isMaximized = await window.isMaximized();
+      if (isMaximized) {
+        await window.unmaximize();
+      } else {
+        await window.maximize();
+      }
+    } catch (error) {
+      console.error('Failed to toggle maximize:', error);
+    }
+  };
+
+  // 关闭窗口
+  const handleClose = async () => {
+    try {
+      const window = getCurrentWindow();
+      await window.close();
+    } catch (error) {
+      console.error('Failed to close window:', error);
+    }
+  };
+
 
   function createLabel() {
     labelCounter.current += 1;
@@ -30,7 +61,7 @@ function App() {
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    const scale = window.devicePixelRatio || 1;
+    const scale = 1;
     const x = Math.round(rect.left * scale);
     const y = Math.round(rect.top * scale);
     const width = Math.round(rect.width * scale);
@@ -41,10 +72,10 @@ function App() {
       await invoke('resize_webview', {
         label,
         x: x / scale, // 转换为逻辑坐标
-        // 应该加上窗口顶部的高度，动态获取顶部栏的高度
-        y: y / scale + 37,
-        width: width / scale - 37,
-        height: height / scale - 37
+        // 加上窗口顶部栏的高度 (32px)
+        y: y / scale,
+        width: width / scale,
+        height: height / scale
       });
     } catch (error) {
       console.error('Failed to resize webview:', error);
@@ -59,12 +90,12 @@ function App() {
     const rect = container.getBoundingClientRect();
     const scale = window.devicePixelRatio || 1;
 
-    console.info(rect, scale);
-
     const x = Math.round(rect.left * scale);
     const y = Math.round(rect.top * scale);
     const width = Math.round(rect.width * scale);
     const height = Math.round(rect.height * scale);
+
+    console.info(x, y, width, height, scale);
 
     try {
       // 使用 Rust 命令创建内嵌的 webview
@@ -72,9 +103,9 @@ function App() {
         label,
         url,
         x: x / scale, // 转换为逻辑坐标
-        y: y / scale,
+        y: y / scale, // 加上窗口顶部栏的高度
         width: width / scale,
-        height: height / scale
+        height: height / scale // 减去顶部栏的高度
       });
 
       console.log('Webview created successfully');
@@ -179,6 +210,13 @@ function App() {
 
   return (
     <main className="container">
+      {/* Window Top Bar */}
+      <WindowTopBar
+        title="SideView Browser"
+        onMinimize={handleMinimize}
+        onMaximize={handleMaximize}
+        onClose={handleClose}
+      />
 
       {/* Tab Bar（控制主窗口内的多个 Webview）*/}
       <div className="tab-bar">
