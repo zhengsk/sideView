@@ -51,13 +51,13 @@ function App() {
   // 处理新标签页导航
   const handleNewTabNavigate = async (url: string, title?: string) => {
     if (!activeLabel) return;
-    
+
     const currentTab = tabs.find(tab => tab.label === activeLabel);
     if (!currentTab?.isNewTab) return;
 
     // 更新标签页为正常的webview标签页
-    setTabs(prev => prev.map(tab => 
-      tab.label === activeLabel 
+    setTabs(prev => prev.map(tab =>
+      tab.label === activeLabel
         ? { ...tab, url, title: title || url, isNewTab: false }
         : tab
     ));
@@ -125,20 +125,25 @@ function App() {
     }
   }
 
-  async function openTab(url: string, title?: string) {
+  /**
+   * 打开新标签页
+   * @param url 
+   * @param title 
+   */
+  async function openTab(url?: string, title: string = "新标签页") {
     const label = createLabel();
     const isNewTab = !url; // 如果没有URL，则为新标签页
-    const finalTitle = title || (isNewTab ? "新标签页" : url);
+    const finalTitle = title || (isNewTab ? title : url);
 
     if (isNewTab) {
       // 创建新标签页（不创建webview）
       setTabs((prev) => [...prev, { label, title: finalTitle, url: "", isNewTab: true }]);
-      
+
       // 隐藏当前活动的 webview
       if (activeLabel) {
         await invoke('hide_webview', { label: activeLabel });
       }
-      
+
       setActiveLabel(label);
       return;
     }
@@ -153,8 +158,6 @@ function App() {
     const y = Math.round(rect.top * scale);
     const width = Math.round(rect.width * scale);
     const height = Math.round(rect.height * scale);
-
-    console.info(x, y, width, height, scale);
 
     try {
       // 使用 Rust 命令创建内嵌的 webview
@@ -185,12 +188,16 @@ function App() {
     }
   }
 
+  /**
+   * 激活标签页
+   * @param label 
+   */
   async function activateTab(label: string) {
     // 如果点击的是当前活动标签，不做任何操作
     if (activeLabel === label) return;
 
     const targetTab = tabs.find(tab => tab.label === label);
-    
+
     try {
       // 隐藏当前活动的 webview
       if (activeLabel) {
@@ -218,9 +225,13 @@ function App() {
     }
   }
 
+  /**
+   * 关闭标签页
+   * @param label 
+   */
   async function closeTab(label: string) {
     const tabToClose = tabs.find(tab => tab.label === label);
-    
+
     try {
       // 如果不是新标签页，隐藏 webview
       if (tabToClose && !tabToClose.isNewTab) {
@@ -230,20 +241,21 @@ function App() {
       // 从标签列表中移除
       setTabs((prev) => prev.filter((t) => t.label !== label));
 
-      // 如果关闭的是当前活动标签，需要切换到其他标签或清空
+      // 如果关闭的是当前活动标签，需要切换到其他标签或创建新标签页
       if (activeLabel === label) {
         const remainingTabs = tabs.filter((t) => t.label !== label);
         if (remainingTabs.length > 0) {
           // 切换到最后一个标签
           const newActiveTab = remainingTabs[remainingTabs.length - 1];
           setActiveLabel(newActiveTab.label);
-          
+
           // 如果新活动标签不是新标签页，显示其webview
           if (!newActiveTab.isNewTab) {
             await invoke('show_webview', { label: newActiveTab.label });
           }
         } else {
-          setActiveLabel(null);
+          // 如果没有剩余标签，创建一个新的标签页
+          openTab();
         }
       }
     } catch (error) {
@@ -281,6 +293,13 @@ function App() {
       }
     };
   }, [activeLabel]);
+
+  // 应用启动时创建默认新标签页
+  useEffect(() => {
+    if (tabs.length === 0) {
+      openTab();
+    }
+  }, []); // 只在组件首次挂载时执行
 
   return (
     <main className="container">

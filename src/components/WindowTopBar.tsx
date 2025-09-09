@@ -38,7 +38,7 @@ export default function WindowTopBar({
             onClick={handleClose}
             aria-label="关闭"
           >
-            <svg width="10" height="10" viewBox="0 0 12 12">
+            <svg width="8" height="8" viewBox="0 0 12 12">
               <path
                 d="M1 1L11 11M1 11L11 1"
                 stroke="currentColor"
@@ -52,7 +52,7 @@ export default function WindowTopBar({
             onClick={handleMinimize}
             aria-label="最小化"
           >
-            <svg width="10" height="10" viewBox="0 0 12 12">
+            <svg width="8" height="8" viewBox="0 0 12 12">
               <path
                 d="M1 6h10"
                 stroke="currentColor"
@@ -67,7 +67,7 @@ export default function WindowTopBar({
             aria-label={isMaximized ? "还原" : "最大化"}
           >
             {isMaximized ? (
-              <svg width="10" height="10" viewBox="0 0 12 12">
+              <svg width="8" height="8" viewBox="0 0 12 12">
                 <path
                   d="M2 3h7v7H2V3zM3 2h7v7"
                   stroke="currentColor"
@@ -76,7 +76,7 @@ export default function WindowTopBar({
                 />
               </svg>
             ) : (
-              <svg width="10" height="10" viewBox="0 0 12 12">
+              <svg width="8" height="8" viewBox="0 0 12 12">
                 <rect
                   x="2"
                   y="2"

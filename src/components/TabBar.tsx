@@ -12,7 +12,7 @@ interface TabBarProps {
   activeLabel: string | null;
   onActivateTab: (label: string) => void;
   onCloseTab: (label: string) => void;
-  onCreateTab: (url: string, title?: string) => void;
+  onCreateTab: (url?: string, title?: string) => void;
 }
 
 export default function TabBar({
@@ -23,7 +23,7 @@ export default function TabBar({
   onCreateTab
 }: TabBarProps) {
   const handleCreateTab = () => {
-    onCreateTab("", "新标签页");
+    onCreateTab();
   };
 
   return (
@@ -57,7 +57,7 @@ export default function TabBar({
         onClick={handleCreateTab}
         className="tab-create-button"
       >
-        + 新建标签
+        +
       </button>
     </div>
   );
