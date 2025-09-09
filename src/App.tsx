@@ -4,7 +4,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import WindowTopBar from "./components/WindowTopBar";
 import TabBar, { Tab } from "./components/TabBar";
 import NewTabPage from "./components/NewTabPage";
-import ApplicationMenu, { useApplicationMenu } from "./components/ApplicationMenu";
 
 import "./App.less";
 
@@ -14,8 +13,15 @@ function App() {
   const labelCounter = useRef(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
   
-  // 使用应用菜单 Hook
-  const applicationMenu = useApplicationMenu();
+  // 显示原生右键菜单
+  const handleContextMenu = async (event: React.MouseEvent) => {
+    event.preventDefault();
+    try {
+      await invoke('show_context_menu');
+    } catch (error) {
+      console.error('Failed to show context menu:', error);
+    }
+  };
 
   // 窗口控制函数
   const handleMinimize = async () => {
@@ -314,7 +320,7 @@ function App() {
           onMinimize={handleMinimize}
           onMaximize={handleMaximize}
           onClose={handleClose}
-          onContextMenu={applicationMenu.showMenu}
+          onContextMenu={handleContextMenu}
         />
 
         {/* Tab Bar（控制主窗口内的多个 Webview）*/}
@@ -334,29 +340,6 @@ function App() {
           )}
         </div>
       </main>
-      
-      {/* 应用右键菜单 */}
-      <ApplicationMenu
-        visible={applicationMenu.visible}
-        position={applicationMenu.position}
-        onClose={applicationMenu.hideMenu}
-        onSettingsClick={() => {
-          console.log('打开设置页面 - 可扩展实现');
-          // TODO: 实现设置页面逻辑
-        }}
-        onBeforeRestart={async () => {
-          // 可以在重启前做一些清理工作
-          console.log('即将重启应用，进行清理...');
-          // 例如：保存用户数据、关闭所有标签页等
-          return true; // 返回true继续重启，返回false取消重启
-        }}
-        onBeforeClose={async () => {
-          // 可以在关闭前确认用户操作
-          console.log('即将关闭应用...');
-          // 例如：弹出确认对话框、保存状态等
-          return true; // 返回true继续关闭，返回false取消关闭
-        }}
-      />
     </>
   );
 }

@@ -1,4 +1,12 @@
-use tauri::{webview::WebviewBuilder, LogicalPosition, LogicalSize, WebviewUrl, Manager};
+use tauri::{
+    webview::WebviewBuilder, 
+    LogicalPosition, 
+    LogicalSize, 
+    WebviewUrl, 
+    Manager,
+    menu::{MenuBuilder, MenuItemBuilder},
+    AppHandle,
+};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -114,12 +122,75 @@ async fn set_webview_opacity(
     Ok(())
 }
 
+// 显示原生右键菜单
+#[tauri::command]
+async fn show_context_menu(app: AppHandle) -> Result<(), String> {
+    let window = app.get_window("main").ok_or("Main window not found")?;
+    
+    // 创建右键菜单
+    let settings_item = MenuItemBuilder::new("设置")
+        .id("settings")
+        .build(&app)
+        .map_err(|e| format!("Failed to create menu item: {}", e))?;
+    
+    let restart_item = MenuItemBuilder::new("重启应用")
+        .id("restart")
+        .build(&app)
+        .map_err(|e| format!("Failed to create menu item: {}", e))?;
+    
+    let quit_item = MenuItemBuilder::new("退出")
+        .id("quit")
+        .build(&app)
+        .map_err(|e| format!("Failed to create menu item: {}", e))?;
+    
+    let menu = MenuBuilder::new(&app)
+        .item(&settings_item)
+        .item(&restart_item)
+        .item(&quit_item)
+        .build()
+        .map_err(|e| format!("Failed to create menu: {}", e))?;
+    
+    // 显示右键菜单
+    window.popup_menu(&menu)
+        .map_err(|e| format!("Failed to show context menu: {}", e))?;
+    
+    Ok(())
+}
+
+// 处理菜单事件
+fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
+    match event.id().as_ref() {
+        "settings" => {
+            // TODO: 打开设置窗口
+            println!("打开设置");
+        },
+        "restart" => {
+            // 重启应用
+            app.restart();
+        },
+        "quit" => {
+            // 退出应用
+            app.exit(0);
+        },
+        _ => {}
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![greet, create_embedded_webview, resize_webview, show_webview, hide_webview, set_webview_opacity])
+        .invoke_handler(tauri::generate_handler![
+            greet, 
+            create_embedded_webview, 
+            resize_webview, 
+            show_webview, 
+            hide_webview, 
+            set_webview_opacity,
+            show_context_menu
+        ])
+        .on_menu_event(handle_menu_event)
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
