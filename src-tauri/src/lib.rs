@@ -118,6 +118,7 @@ async fn set_webview_opacity(
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![greet, create_embedded_webview, resize_webview, show_webview, hide_webview, set_webview_opacity])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

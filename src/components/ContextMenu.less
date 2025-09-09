@@ -1,0 +1,130 @@
+// ContextMenu 组件样式
+
+.context-menu {
+  position: fixed;
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  min-width: 180px;
+  z-index: 9999;
+  padding: 4px;
+  user-select: none;
+  animation: contextMenuFadeIn 0.15s ease-out;
+
+  // 防止菜单被其他元素遮挡
+  pointer-events: all;
+}
+
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  gap: 10px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+  }
+
+  &:active {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateX(1px) scale(0.98);
+  }
+
+  &.danger {
+    color: rgba(255, 95, 87, 0.9);
+
+    &:hover {
+      background: rgba(255, 95, 87, 0.15);
+      color: #ff6b63;
+    }
+
+    &:active {
+      background: rgba(255, 95, 87, 0.25);
+    }
+  }
+}
+
+.context-menu-icon {
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.8;
+  min-width: 16px;
+  text-align: center;
+}
+
+.context-menu-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.context-menu-separator {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 8px;
+}
+
+// 浅色主题适配
+@media (prefers-color-scheme: light) {
+  .context-menu {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(0, 0, 0, 0.15);
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.15),
+      0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
+
+  .context-menu-item {
+    color: rgba(0, 0, 0, 0.9);
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.08);
+      color: #000000;
+    }
+
+    &:active {
+      background: rgba(0, 0, 0, 0.12);
+    }
+
+    &.danger {
+      color: rgba(255, 59, 48, 0.9);
+
+      &:hover {
+        background: rgba(255, 59, 48, 0.1);
+        color: #ff3b30;
+      }
+
+      &:active {
+        background: rgba(255, 59, 48, 0.15);
+      }
+    }
+  }
+
+  .context-menu-separator {
+    background: rgba(0, 0, 0, 0.1);
+  }
+}
