@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import WindowTopBar from "./components/WindowTopBar";
+import TabBar, { Tab } from "./components/TabBar";
+import NewTabPage from "./components/NewTabPage";
 
 import "./App.less";
 
 function App() {
-  const [tabs, setTabs] = useState<Array<{ label: string; title: string; url: string }>>([]);
+  const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
   const labelCounter = useRef(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -46,6 +48,47 @@ function App() {
     }
   };
 
+  // 处理新标签页导航
+  const handleNewTabNavigate = async (url: string, title?: string) => {
+    if (!activeLabel) return;
+    
+    const currentTab = tabs.find(tab => tab.label === activeLabel);
+    if (!currentTab?.isNewTab) return;
+
+    // 更新标签页为正常的webview标签页
+    setTabs(prev => prev.map(tab => 
+      tab.label === activeLabel 
+        ? { ...tab, url, title: title || url, isNewTab: false }
+        : tab
+    ));
+
+    // 创建webview
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const scale = window.devicePixelRatio || 1;
+
+    const x = Math.round(rect.left * scale);
+    const y = Math.round(rect.top * scale);
+    const width = Math.round(rect.width * scale);
+    const height = Math.round(rect.height * scale);
+
+    try {
+      await invoke('create_embedded_webview', {
+        label: activeLabel,
+        url,
+        x: x / scale,
+        y: y / scale,
+        width: width / scale,
+        height: height / scale
+      });
+
+      await invoke('show_webview', { label: activeLabel });
+    } catch (error) {
+      console.error('Failed to navigate new tab:', error);
+    }
+  };
 
   function createLabel() {
     labelCounter.current += 1;
@@ -84,6 +127,22 @@ function App() {
 
   async function openTab(url: string, title?: string) {
     const label = createLabel();
+    const isNewTab = !url; // 如果没有URL，则为新标签页
+    const finalTitle = title || (isNewTab ? "新标签页" : url);
+
+    if (isNewTab) {
+      // 创建新标签页（不创建webview）
+      setTabs((prev) => [...prev, { label, title: finalTitle, url: "", isNewTab: true }]);
+      
+      // 隐藏当前活动的 webview
+      if (activeLabel) {
+        await invoke('hide_webview', { label: activeLabel });
+      }
+      
+      setActiveLabel(label);
+      return;
+    }
+
     const container = containerRef.current;
     if (!container) return;
 
@@ -110,7 +169,7 @@ function App() {
 
       console.log('Webview created successfully');
 
-      setTabs((prev) => [...prev, { label, title: title ?? url, url }]);
+      setTabs((prev) => [...prev, { label, title: finalTitle, url, isNewTab: false }]);
 
       // 隐藏当前活动的 webview
       if (activeLabel) {
@@ -121,9 +180,6 @@ function App() {
       setActiveLabel(label);
       await invoke('show_webview', { label });
 
-      // 设置 webview 透明度为 50%
-      // await invoke('set_webview_opacity', { label, opacity: 0.5 });
-
     } catch (error) {
       console.error(error);
     }
@@ -133,14 +189,24 @@ function App() {
     // 如果点击的是当前活动标签，不做任何操作
     if (activeLabel === label) return;
 
+    const targetTab = tabs.find(tab => tab.label === label);
+    
     try {
       // 隐藏当前活动的 webview
       if (activeLabel) {
-        await invoke('hide_webview', { label: activeLabel });
+        const currentTab = tabs.find(tab => tab.label === activeLabel);
+        if (currentTab && !currentTab.isNewTab) {
+          await invoke('hide_webview', { label: activeLabel });
+        }
       }
 
       // 设置新的活动标签
       setActiveLabel(label);
+
+      // 如果是新标签页，不需要操作webview
+      if (targetTab?.isNewTab) {
+        return;
+      }
 
       // 调整新标签的 webview 大小和位置
       await layoutActiveWebview(label);
@@ -153,9 +219,13 @@ function App() {
   }
 
   async function closeTab(label: string) {
+    const tabToClose = tabs.find(tab => tab.label === label);
+    
     try {
-      // 隐藏要关闭的 webview
-      await invoke('hide_webview', { label });
+      // 如果不是新标签页，隐藏 webview
+      if (tabToClose && !tabToClose.isNewTab) {
+        await invoke('hide_webview', { label });
+      }
 
       // 从标签列表中移除
       setTabs((prev) => prev.filter((t) => t.label !== label));
@@ -165,9 +235,13 @@ function App() {
         const remainingTabs = tabs.filter((t) => t.label !== label);
         if (remainingTabs.length > 0) {
           // 切换到最后一个标签
-          const newActiveLabel = remainingTabs[remainingTabs.length - 1].label;
-          setActiveLabel(newActiveLabel);
-          await invoke('show_webview', { label: newActiveLabel });
+          const newActiveTab = remainingTabs[remainingTabs.length - 1];
+          setActiveLabel(newActiveTab.label);
+          
+          // 如果新活动标签不是新标签页，显示其webview
+          if (!newActiveTab.isNewTab) {
+            await invoke('show_webview', { label: newActiveTab.label });
+          }
         } else {
           setActiveLabel(null);
         }
@@ -219,42 +293,21 @@ function App() {
       />
 
       {/* Tab Bar（控制主窗口内的多个 Webview）*/}
-      <div className="tab-bar">
-        {tabs.map((t) => (
-          <div key={t.label} className="tab-bar-item">
-            <button
-              onClick={() => activateTab(t.label)}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 6,
-                border: activeLabel === t.label ? "2px solid #646cff" : "1px solid #3a3a3a",
-                background: activeLabel === t.label ? "#2a2a2a" : "#1a1a1a",
-                color: "#fff",
-                cursor: "pointer",
-              }}
-              title={t.url}
-            >
-              {t.title}
-            </button>
-            <button
-              onClick={() => closeTab(t.label)}
-              className="tab-bar-item-close-button"
-              aria-label={`close ${t.title}`}
-            >
-              ×
-            </button>
-          </div>
-        ))}
-        <button
-          onClick={() => openTab("https://huaban.com", "花瓣网")}
-          style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #3a3a3a", background: "#1a1a1a", color: "#fff" }}
-        >
-          + 新建标签
-        </button>
-      </div>
+      <TabBar
+        tabs={tabs}
+        activeLabel={activeLabel}
+        onActivateTab={activateTab}
+        onCloseTab={closeTab}
+        onCreateTab={openTab}
+      />
 
       {/* Webview 容器区域：用于计算位置与大小 */}
-      <div ref={containerRef} className="webview-container" />
+      <div ref={containerRef} className="webview-container">
+        {/* 显示新标签页内容 */}
+        {activeLabel && tabs.find(tab => tab.label === activeLabel)?.isNewTab && (
+          <NewTabPage onNavigate={handleNewTabNavigate} />
+        )}
+      </div>
     </main>
   );
 }
