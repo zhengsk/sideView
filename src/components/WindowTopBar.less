@@ -29,9 +29,14 @@
   background: linear-gradient(135deg, @bg-dark-start 0%, @bg-dark-end 100%);
   border-bottom: 1px solid @border-dark;
   padding: 0 12px;
-  user-select: none;
   position: relative;
   z-index: 1000;
+
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
 
   &-left {
     display: flex;
@@ -138,7 +143,6 @@
   white-space: nowrap;
   overflow: hidden;
   max-width: 200px;
-  user-select: none;
 }
 
 // 浅色主题适配

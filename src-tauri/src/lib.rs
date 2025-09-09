@@ -6,6 +6,7 @@ use tauri::{
     Manager,
     menu::{MenuBuilder, MenuItemBuilder},
     AppHandle,
+    Emitter,
 };
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -89,6 +90,16 @@ async fn hide_webview(app: tauri::AppHandle, label: String) -> Result<(), String
 }
 
 #[tauri::command]
+async fn destroy_webview(app: tauri::AppHandle, label: String) -> Result<(), String> {
+    if let Some(webview) = app.get_webview(&label) {
+        webview
+            .close()
+            .map_err(|e| format!("Failed to destroy webview: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 async fn set_webview_opacity(
     app: tauri::AppHandle,
     label: String,
@@ -122,9 +133,9 @@ async fn set_webview_opacity(
     Ok(())
 }
 
-// 显示原生右键菜单
+// 显示标题栏右键菜单
 #[tauri::command]
-async fn show_context_menu(app: AppHandle) -> Result<(), String> {
+async fn show_titlebar_context_menu(app: AppHandle) -> Result<(), String> {
     let window = app.get_window("main").ok_or("Main window not found")?;
     
     // 创建右键菜单
@@ -157,9 +168,49 @@ async fn show_context_menu(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+// 显示标签页右键菜单
+#[tauri::command]
+async fn show_tab_context_menu(app: AppHandle, tab_label: String, total_tabs: usize) -> Result<(), String> {
+    let window = app.get_window("main").ok_or("Main window not found")?;
+    
+    // 创建标签页右键菜单项
+    let refresh_item = MenuItemBuilder::new("刷新")
+        .id(&format!("refresh_{}", tab_label))
+        .build(&app)
+        .map_err(|e| format!("Failed to create menu item: {}", e))?;
+    
+    let close_item = MenuItemBuilder::new("关闭")
+        .id(&format!("close_{}", tab_label))
+        .build(&app)
+        .map_err(|e| format!("Failed to create menu item: {}", e))?;
+    
+    let close_others_item = MenuItemBuilder::new("关闭其他")
+        .id(&format!("close_others_{}", tab_label))
+        .enabled(total_tabs > 1) // 只有多个标签时才启用
+        .build(&app)
+        .map_err(|e| format!("Failed to create menu item: {}", e))?;
+    
+    let menu = MenuBuilder::new(&app)
+        .item(&refresh_item)
+        .separator()
+        .item(&close_item)
+        .item(&close_others_item)
+        .build()
+        .map_err(|e| format!("Failed to create menu: {}", e))?;
+    
+    // 显示右键菜单
+    window.popup_menu(&menu)
+        .map_err(|e| format!("Failed to show context menu: {}", e))?;
+    
+    Ok(())
+}
+
 // 处理菜单事件
 fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
-    match event.id().as_ref() {
+    let menu_id = event.id().as_ref();
+    
+    // 标题栏菜单事件
+    match menu_id {
         "settings" => {
             // TODO: 打开设置窗口
             println!("打开设置");
@@ -172,8 +223,50 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             // 退出应用
             app.exit(0);
         },
-        _ => {}
+        _ => {
+            // 处理标签页菜单事件
+            if let Some(tab_label) = extract_tab_label_from_menu_id(menu_id) {
+                // 发送事件到前端处理
+                if let Some(window) = app.get_window("main") {
+                    let event_name = if menu_id.starts_with("refresh_") {
+                        "tab-refresh"
+                    } else if menu_id.starts_with("close_") && !menu_id.starts_with("close_others_") && !menu_id.starts_with("close_right_") {
+                        "tab-close"
+                    } else if menu_id.starts_with("close_others_") {
+                        "tab-close-others"
+                    } else {
+                        return;
+                    };
+                    
+                    let _ = window.emit(event_name, &tab_label);
+                }
+            }
+        }
     }
+}
+
+// 从菜单ID中提取标签label
+fn extract_tab_label_from_menu_id(menu_id: &str) -> Option<String> {
+    if let Some(pos) = menu_id.rfind('_') {
+        if pos + 1 < menu_id.len() {
+            return Some(menu_id[pos + 1..].to_string());
+        }
+    }
+    None
+}
+
+// 刷新webview
+#[tauri::command]
+async fn refresh_webview(app: AppHandle, label: String) -> Result<(), String> {
+    if let Some(webview) = app.get_webview(&label) {
+        webview.eval(&format!(
+            r#"
+            window.location.reload();
+            "#
+        ))
+        .map_err(|e| format!("Failed to refresh webview: {}", e))?;
+    }
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -183,12 +276,15 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             greet, 
-            create_embedded_webview, 
-            resize_webview, 
-            show_webview, 
-            hide_webview, 
-            set_webview_opacity,
-            show_context_menu
+            create_embedded_webview, // 创建webview
+            resize_webview, // 调整webview大小
+            show_webview, // 显示webview
+            hide_webview, // 隐藏webview
+            destroy_webview, // 销毁webview
+            set_webview_opacity, // 设置webview透明度
+            show_titlebar_context_menu, // 标题栏右键菜单
+            show_tab_context_menu, // 标签页右键菜单
+            refresh_webview, // 刷新webview
         ])
         .on_menu_event(handle_menu_event)
         .run(tauri::generate_context!())
