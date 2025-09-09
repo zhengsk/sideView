@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import "./ContextMenu.less";
 
 export interface MenuItem {
@@ -81,7 +82,7 @@ export default function ContextMenu({ items, position, visible, onClose }: Conte
     onClose();
   };
 
-  return (
+  const menuContent = (
     <div
       ref={menuRef}
       className="context-menu"
@@ -105,4 +106,7 @@ export default function ContextMenu({ items, position, visible, onClose }: Conte
       ))}
     </div>
   );
+
+  // 使用 Portal 将菜单渲染到 document.body
+  return createPortal(menuContent, document.body);
 }
