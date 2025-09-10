@@ -32,8 +32,8 @@ export default function TabBar({
   onActivateTab,
   onCloseTab,
   onCreateTab,
-  onRefreshTab,
-  onCloseOtherTabs,
+  onRefreshTab: _onRefreshTab,
+  onCloseOtherTabs: _onCloseOtherTabs,
   hasClosedTabs,
   onReopenTab
 }: TabBarProps) {
@@ -56,7 +56,7 @@ export default function TabBar({
 
   return (
     <div className="tab-bar">
-      {tabs.map((tab, index) => (
+      {tabs.map((tab, _index) => (
         <div key={tab.label} className={`tab-bar-item ${activeLabel === tab.label ? 'active' : ''}`}>
           <button
             onClick={() => onActivateTab(tab.label)}
